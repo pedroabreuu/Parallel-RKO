@@ -7,6 +7,9 @@
 #include <utility>
 #include <numeric>
 #include <algorithm>
+#include <atomic>
+#include <chrono>
+#include <omp.h>
 
 constexpr long long INF = std::numeric_limits<long long>::max() / 4;
 
@@ -16,6 +19,29 @@ struct Edge {
   int to;
   int cost;
 };
+
+struct InputEdge {
+  int origin;
+  int destination;
+  int cost;
+};
+
+inline std::atomic<long long> decoderElapsedNanoseconds{0};
+inline std::atomic<unsigned long long> decoderCallCount{0};
+
+void ResetDecoderMetrics() {
+  decoderElapsedNanoseconds.store(0, std::memory_order_relaxed);
+  decoderCallCount.store(0, std::memory_order_relaxed);
+}
+
+double GetDecoderElapsedSeconds() {
+  return static_cast<double>(
+      decoderElapsedNanoseconds.load(std::memory_order_relaxed)) / 1.0e9;
+}
+
+unsigned long long GetDecoderCallCount() {
+  return decoderCallCount.load(std::memory_order_relaxed);
+}
 
 struct TProblemData
 {
@@ -88,6 +114,8 @@ void Dijkstra(int origin, const std::vector<std::vector<Edge>>& aList, std::vect
 void ReadData(char name[], TProblemData &data)
 { 
     FILE *arq;
+
+    double startFileRead = omp_get_wtime();
     arq = fopen(name,"r");
 
     if (arq == NULL)
@@ -98,9 +126,11 @@ void ReadData(char name[], TProblemData &data)
     }
 
     // vertices, edges and p
-    fscanf(arq, "%d", &data.nVertices);
-    fscanf(arq, "%d", &data.nEdges);
-    fscanf(arq, "%d", &data.p);
+    if (fscanf(arq, "%d %d %d", &data.nVertices, &data.nEdges, &data.p) != 3) {
+      printf("\nERROR: Invalid instance header.\n");
+      fclose(arq);
+      exit(1);
+    }
 
     if (data.nVertices <= 0 || data.nEdges <= 0 || data.p <= 0 || data.p > data.nVertices) {
       printf("\nERROR: Invalid values of vertices, edges or p.\n");
@@ -110,9 +140,9 @@ void ReadData(char name[], TProblemData &data)
 
     data.alpha = data.p / 2;
     data.n = data.p;
-    
-    data.aList.clear();
-    data.aList.resize(data.nVertices);
+
+    std::vector<InputEdge> inputEdges;
+    inputEdges.reserve(data.nEdges);
 
     for (int i = 0; i < data.nEdges; i++) {
       int o, d, cost;
@@ -132,20 +162,39 @@ void ReadData(char name[], TProblemData &data)
         fclose(arq);
         exit(1);
       }
-      
-      data.aList[o].push_back({d, cost});
-      data.aList[d].push_back({o, cost});
 
+      inputEdges.push_back({o, d, cost});
     }
 
     fclose(arq);
 
+    double fileReadTime = omp_get_wtime() - startFileRead;
+
+    double startAdjacencyList = omp_get_wtime();
+    data.aList.clear();
+    data.aList.resize(data.nVertices);
+
+    for (const InputEdge& edge : inputEdges) {
+      data.aList[edge.origin].push_back({edge.destination, edge.cost});
+      data.aList[edge.destination].push_back({edge.origin, edge.cost});
+    }
+
+    double adjacencyListTime = omp_get_wtime() - startAdjacencyList;
+
+    printf("Time to read file: %.9f seconds\n", fileReadTime);
+    printf("Time to build adjacency list: %.9f seconds\n", adjacencyListTime);
+
+    double startDistanceMatrix = omp_get_wtime();
     data.distances.clear();
     data.distances.resize(data.nVertices, std::vector<long long>(data.nVertices, INF));
 
     for (int i = 0; i < data.nVertices; i++) {
       Dijkstra(i, data.aList, data.distances[i]);
     }
+
+    double distanceMatrixTime = omp_get_wtime() - startDistanceMatrix;
+
+    printf("Time to build distance matrix: %.9f seconds\n", distanceMatrixTime);
 }
 
 /************************************************************************************
@@ -154,6 +203,8 @@ void ReadData(char name[], TProblemData &data)
 *************************************************************************************/
 double Decoder(TSol &s, const TProblemData &data)
 {
+  const auto decoderStart = std::chrono::steady_clock::now();
+
   std::vector<int> candidates(data.nVertices);
   std::iota(candidates.begin(), candidates.end(), 0);
 
@@ -196,6 +247,12 @@ double Decoder(TSol &s, const TProblemData &data)
       totalCost += facilityDistances[i];
     }
   }
+
+  const auto decoderEnd = std::chrono::steady_clock::now();
+  const auto elapsedNanoseconds = std::chrono::duration_cast<std::chrono::nanoseconds>(decoderEnd - decoderStart).count();
+
+  decoderElapsedNanoseconds.fetch_add(elapsedNanoseconds, std::memory_order_relaxed);
+  decoderCallCount.fetch_add(1, std::memory_order_relaxed);
 
   return static_cast<double>(totalCost);
 }

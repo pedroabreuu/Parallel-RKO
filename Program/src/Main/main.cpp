@@ -168,6 +168,10 @@ int main(int argc, char *argv[ ])
     // input: read data of the instance problem
     TProblemData data;     
     ReadData(nameInstance, data);
+    ResetDecoderMetrics();
+
+    double brkgaExecutionTime = 0.0;
+    unsigned long long brkgaCallCount = 0;
     
     double foBest = INFINITY,
            foAverage = 0.0;
@@ -244,7 +248,17 @@ int main(int argc, char *argv[ ])
                         }
                         
                         // calls the metaheuristic function
+                        double startMHCall = get_time_in_seconds();
                         function_mh(runData, data);
+                        double mhCallTime = get_time_in_seconds() - startMHCall;
+
+                        if (strcmp(algorithms[i], "BRKGA") == 0) {
+                            #pragma omp atomic update
+                            brkgaExecutionTime += mhCallTime;
+
+                            #pragma omp atomic update
+                            brkgaCallCount++;
+                        }
 
                         // cancels when a thread ends
                         stop_execution.store(true);
@@ -295,6 +309,16 @@ int main(int argc, char *argv[ ])
     foAverage = foAverage / runData.MAXRUNS;
     timeBest = timeBest / runData.MAXRUNS;
     timeTotal = timeTotal / runData.MAXRUNS;
+
+    const double decoderTime = GetDecoderElapsedSeconds();
+    const unsigned long long decoderCalls = GetDecoderCallCount();
+
+    printf("\nBRKGA accumulated execution time: %.6f seconds (%llu calls)\n",
+           brkgaExecutionTime, brkgaCallCount);
+    printf("Decoder accumulated time: %.6f seconds (%llu calls)\n",
+           decoderTime, decoderCalls);
+    printf("Decoder average time per call: %.9f seconds\n",
+           decoderCalls > 0 ? decoderTime / decoderCalls : 0.0);
 
     if (!runData.debug)
     {
