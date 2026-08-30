@@ -27,6 +27,8 @@ struct TRunData
     int MAXTIME;                            // define the maximum running time (stop condiction)
     int MAXRUNS;                            // maximum number of runs of the method
     int debug;                              // define the run mode (0 - save results in files; 1 - print results in screen)
+    int quiet;                              // suppress non-error terminal and file output
+    unsigned int seed;                      // fixed random seed for reproducible runs
     float restart;                          // define the restart strategy (0 - without restart; 1 - with restart)
     int sizePool;                           // define the size of the elite pool solutions
 };
