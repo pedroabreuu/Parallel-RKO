@@ -167,7 +167,7 @@ int main(int argc, char *argv[ ])
 
     // input: read data of the instance problem
     TProblemData data;     
-    ReadData(nameInstance, data);      
+    ReadData(nameInstance, data);
     
     double foBest = INFINITY,
            foAverage = 0.0;
