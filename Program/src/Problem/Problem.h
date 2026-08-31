@@ -26,6 +26,7 @@ struct InputEdge {
   int cost;
 };
 
+#ifdef ENABLE_RUNTIME_METRICS
 inline std::atomic<long long> decoderElapsedNanoseconds{0};
 inline std::atomic<unsigned long long> decoderCallCount{0};
 
@@ -42,6 +43,7 @@ double GetDecoderElapsedSeconds() {
 unsigned long long GetDecoderCallCount() {
   return decoderCallCount.load(std::memory_order_relaxed);
 }
+#endif
 
 struct TProblemData
 {
@@ -52,6 +54,9 @@ struct TProblemData
     int alpha; // number of neighbors
     std::vector<std::vector<Edge>> aList; // adjacency list
     std::vector<std::vector<long long>> distances; // matrix of smallest distances between vertices
+    double fileReadTime = 0.0;
+    double adjacencyListTime = 0.0;
+    double distanceMatrixTime = 0.0;
 };
 
 
@@ -168,7 +173,7 @@ void ReadData(char name[], TProblemData &data)
 
     fclose(arq);
 
-    double fileReadTime = omp_get_wtime() - startFileRead;
+    data.fileReadTime = omp_get_wtime() - startFileRead;
 
     double startAdjacencyList = omp_get_wtime();
     data.aList.clear();
@@ -179,10 +184,7 @@ void ReadData(char name[], TProblemData &data)
       data.aList[edge.destination].push_back({edge.origin, edge.cost});
     }
 
-    double adjacencyListTime = omp_get_wtime() - startAdjacencyList;
-
-    printf("Time to read file: %.9f seconds\n", fileReadTime);
-    printf("Time to build adjacency list: %.9f seconds\n", adjacencyListTime);
+    data.adjacencyListTime = omp_get_wtime() - startAdjacencyList;
 
     double startDistanceMatrix = omp_get_wtime();
     data.distances.clear();
@@ -192,9 +194,7 @@ void ReadData(char name[], TProblemData &data)
       Dijkstra(i, data.aList, data.distances[i]);
     }
 
-    double distanceMatrixTime = omp_get_wtime() - startDistanceMatrix;
-
-    printf("Time to build distance matrix: %.9f seconds\n", distanceMatrixTime);
+    data.distanceMatrixTime = omp_get_wtime() - startDistanceMatrix;
 }
 
 /************************************************************************************
@@ -203,7 +203,9 @@ void ReadData(char name[], TProblemData &data)
 *************************************************************************************/
 double Decoder(TSol &s, const TProblemData &data)
 {
+#ifdef ENABLE_RUNTIME_METRICS
   const auto decoderStart = std::chrono::steady_clock::now();
+#endif
 
   std::vector<int> candidates(data.nVertices);
   std::iota(candidates.begin(), candidates.end(), 0);
@@ -231,28 +233,27 @@ double Decoder(TSol &s, const TProblemData &data)
   }
 
   long long totalCost = 0;
+  std::vector<long long> facilityDistances(data.p);
 
   for (int vertex = 0; vertex < data.nVertices; vertex++) {
-    std::vector<long long> facilityDistances;
-    facilityDistances.reserve(data.p);
-
-    for (int facility: facilities) {
-      long long distance = data.distances[vertex][facility];
-      facilityDistances.push_back(distance);
+    for (int i = 0; i < data.p; i++) {
+      facilityDistances[i] = data.distances[vertex][facilities[i]];
     }
-    
-    std::sort(facilityDistances.begin(), facilityDistances.end());
+
+    std::nth_element(facilityDistances.begin(), facilityDistances.begin() + data.alpha, facilityDistances.end());
 
     for (int i = 0; i < data.alpha; i++) {
       totalCost += facilityDistances[i];
     }
   }
 
+#ifdef ENABLE_RUNTIME_METRICS
   const auto decoderEnd = std::chrono::steady_clock::now();
   const auto elapsedNanoseconds = std::chrono::duration_cast<std::chrono::nanoseconds>(decoderEnd - decoderStart).count();
 
   decoderElapsedNanoseconds.fetch_add(elapsedNanoseconds, std::memory_order_relaxed);
   decoderCallCount.fetch_add(1, std::memory_order_relaxed);
+#endif
 
   return static_cast<double>(totalCost);
 }
