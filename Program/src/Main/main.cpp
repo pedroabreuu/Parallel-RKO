@@ -149,6 +149,7 @@ int main(int argc, char *argv[ ])
     runData.restart = 1.0f;
     runData.sizePool = 10;
     runData.maxGenerations = 0;
+    runData.threads = 1;
 
     while (fgets(line, sizeof(line), fileConf)) {
         // Remove newline character
@@ -211,8 +212,18 @@ int main(int argc, char *argv[ ])
         else if (strncmp(line, "maxGenerations", 14) == 0) {
           sscanf(line, "maxGenerations %d", &runData.maxGenerations);
         }
+
+        // Check for the number of decoder threads
+        else if (strncmp(line, "threads", 7) == 0) {
+            sscanf(line, "threads %d", &runData.threads);
+        }
     }
     fclose(fileConf);
+
+    if (runData.threads < 1) {
+        printf("\nERROR: threads must be >= 1 (got %d)\n", runData.threads);
+        exit(1);
+    }
 
     // input: read data of the instance problem
     TProblemData data;     

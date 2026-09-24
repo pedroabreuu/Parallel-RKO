@@ -8,13 +8,14 @@
 # not reproducible, only repeatable.
 #
 # Usage:  ./record_environment.sh [OUTPUT_FILE]
+#         CONFIG_NAME=parallel ./record_environment.sh   (same label as run_campaign.sh)
 set -euo pipefail
 export LC_ALL=C
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
-OUT=${1:-../Results/campanha_env.txt}
+OUT=${1:-../Results/campanha_env_${CONFIG_NAME:-sequential}.txt}
 RAPL_PKG=/sys/class/powercap/intel-rapl:0
 mkdir -p "$(dirname "$OUT")"
 
@@ -64,7 +65,7 @@ mkdir -p "$(dirname "$OUT")"
 
     echo
     echo "=== thermal ==="
-    sensors -u k10temp 2>/dev/null | grep -E 'temp[0-9]_input' || echo "k10temp unavailable"
+    sensors -u 'k10temp-*' 2>/dev/null | grep -E 'temp[0-9]_input' || echo "k10temp unavailable"
 
     echo
     echo "=== rapl ==="

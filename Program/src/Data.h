@@ -32,6 +32,7 @@ struct TRunData
     float restart;                          // define the restart strategy (0 - without restart; 1 - with restart)
     int sizePool;                           // define the size of the elite pool solutions
     int maxGenerations;                     // define the size of maximum generations for BRKGA
+    int threads;                            // number of threads used inside the decoder
 };
 
 /***********************************************************************************
