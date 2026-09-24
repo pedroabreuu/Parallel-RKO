@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <atomic>
 #include <chrono>
+#include <vector>
 #include <omp.h>
 
 constexpr long long INF = std::numeric_limits<long long>::max() / 4;
@@ -25,25 +26,6 @@ struct InputEdge {
   int destination;
   int cost;
 };
-
-#ifdef ENABLE_RUNTIME_METRICS
-inline std::atomic<long long> decoderElapsedNanoseconds{0};
-inline std::atomic<unsigned long long> decoderCallCount{0};
-
-void ResetDecoderMetrics() {
-  decoderElapsedNanoseconds.store(0, std::memory_order_relaxed);
-  decoderCallCount.store(0, std::memory_order_relaxed);
-}
-
-double GetDecoderElapsedSeconds() {
-  return static_cast<double>(
-      decoderElapsedNanoseconds.load(std::memory_order_relaxed)) / 1.0e9;
-}
-
-unsigned long long GetDecoderCallCount() {
-  return decoderCallCount.load(std::memory_order_relaxed);
-}
-#endif
 
 struct TProblemData
 {
@@ -143,7 +125,7 @@ void ReadData(char name[], TProblemData &data)
       exit(1);
     }
 
-    data.alpha = data.p / 2;
+    data.alpha = std::max(1, data.p / 2);
     data.n = data.p;
 
     std::vector<InputEdge> inputEdges;
@@ -197,15 +179,15 @@ void ReadData(char name[], TProblemData &data)
     data.distanceMatrixTime = omp_get_wtime() - startDistanceMatrix;
 }
 
+inline std::atomic<unsigned long long> decoderCalls{0};
+
 /************************************************************************************
  Method: Decoder 
  Description: mapping the random-key solution into a problem solution
 *************************************************************************************/
 double Decoder(TSol &s, const TProblemData &data)
 {
-#ifdef ENABLE_RUNTIME_METRICS
-  const auto decoderStart = std::chrono::steady_clock::now();
-#endif
+  decoderCalls.fetch_add(1, std::memory_order_relaxed);
 
   std::vector<int> candidates(data.nVertices);
   std::iota(candidates.begin(), candidates.end(), 0);
@@ -246,14 +228,6 @@ double Decoder(TSol &s, const TProblemData &data)
       totalCost += facilityDistances[i];
     }
   }
-
-#ifdef ENABLE_RUNTIME_METRICS
-  const auto decoderEnd = std::chrono::steady_clock::now();
-  const auto elapsedNanoseconds = std::chrono::duration_cast<std::chrono::nanoseconds>(decoderEnd - decoderStart).count();
-
-  decoderElapsedNanoseconds.fetch_add(elapsedNanoseconds, std::memory_order_relaxed);
-  decoderCallCount.fetch_add(1, std::memory_order_relaxed);
-#endif
 
   return static_cast<double>(totalCost);
 }

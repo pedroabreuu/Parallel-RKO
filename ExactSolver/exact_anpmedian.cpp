@@ -37,7 +37,7 @@ Instance readInstance(const std::string& path) {
         throw std::runtime_error("Could not read instance header: " + path);
     }
 
-    instance.alpha = instance.p / 2;  // Same integer division used by Decoder.
+    instance.alpha = instance.p / 2;  // Decoder uses max(1, p / 2) identical for every pmed instance (p >= 5).
     instance.adjacency.resize(instance.vertices);
 
     for (int edge = 0; edge < instance.edges; ++edge) {

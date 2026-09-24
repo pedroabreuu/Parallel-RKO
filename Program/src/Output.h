@@ -15,7 +15,7 @@
  Description: Outputs the solution to the screen using the Decoder.
 *************************************************************************************/
 void WriteSolutionScreen(const char *algorithms[], int numMH, TSol s, 
-						 float timeBest, float timeTotal, char instance[], 
+						 double timeBest, double timeTotal, char instance[], 
 						 const TProblemData &data, std::vector <TSol> pool)
 {
 	printf("\n\n\nRKO: ");
@@ -40,7 +40,7 @@ void WriteSolutionScreen(const char *algorithms[], int numMH, TSol s,
  Description: Outputs the solution in a txt file using the Decoder.
 *************************************************************************************/
 void WriteSolution(const char *algorithms[], int numMH, TSol s, 
-				   float timeBest, float timeTotal, char instance[], 
+				   double timeBest, double timeTotal, char instance[], 
 				   const TProblemData &data)
 {
 	char name[256]="../Results/Solutions_RKO";
@@ -79,8 +79,8 @@ void WriteSolution(const char *algorithms[], int numMH, TSol s,
  Description: Outputs the results in a csv file.
 *************************************************************************************/
 void WriteResults(const char *algorithms[], int numMH, double ofv, 
-				  double ofvAverage, std::vector <double> ofvs, float timeBest, 
-				  float timeTotal, char instance[])
+				  double ofvAverage, std::vector <double> ofvs, double timeBest, 
+				  double timeTotal, unsigned long long decodes, double energy, char instance[])
 {
 	char name[256]="../Results/Results_RKO";
 	strcat(name,".csv");
@@ -106,6 +106,8 @@ void WriteResults(const char *algorithms[], int numMH, double ofv,
 	fprintf(File,"\t%lf", ofvAverage);
 	fprintf(File,"\t%.3f", timeBest);
 	fprintf(File,"\t%.3f", timeTotal);
+  fprintf(File,"\t%llu", decodes);
+  fprintf(File,"\t%.3f", energy);
 
 	fclose(File);
 }

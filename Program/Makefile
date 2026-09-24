@@ -1,48 +1,31 @@
-# Detect the operating system
+# Reproducible build profiles for the RKO.
 OS := $(shell uname -s)
-ifeq ($(OS), Windows_NT)
-    RM := del /Q /F
-    EXE := .exe
-	CCC = g++
-else ifeq ($(OS), Linux)
-    RM := rm -f
-    EXE :=
-	CCC = g++
-else ifeq ($(OS), Darwin)  
-    RM := rm -f
-    EXE :=
-	CCC = g++-14
+
+ifeq ($(OS),Darwin)
+	CXX ?= g++-14
+else
+	CXX ?= g++
 endif
 
-TARGETDIR = .
-CCFLAGS = -fopenmp -g -O3 -Wall -std=c++2a -Wno-unused-but-set-variable
-TARGET = $(TARGETDIR)/runRKO$(EXE)
+COMMON_FLAGS := -fopenmp -Wall -Wextra -std=c++20 -Wno-unused-but-set-variable
+PERFORMANCE_FLAGS := -O3 -DNDEBUG -march=native
+DEBUG_FLAGS := -O0 -g
 
-debug: CCFLAGS += -g
-release: CCFLAGS += -march=native
+RKO_SOURCE := src/Main/main.cpp
+RKO_HEADERS := $(shell find src -type f -name '*.h')
+RKO_TARGET := runRKO
 
-OBJS = $(TARGETDIR)/src/Main/main.o
+.PHONY: all release debug rebuild clean
 
-# Rule to generate the final binary
-$(TARGET): $(OBJS)
-	$(CCC) $(CCFLAGS) -o $@ $(OBJS)
+all: release
 
-# Compilation of each object file
-$(TARGETDIR)/src/Main/main.o: $(TARGETDIR)/src/Main/main.cpp
-	$(CCC) $(CCFLAGS) -c $< -o $@
+release: $(RKO_SOURCE) $(RKO_HEADERS)
+	$(CXX) $(COMMON_FLAGS) $(PERFORMANCE_FLAGS) $(RKO_SOURCE) -o $(RKO_TARGET)
 
-# Rule for running tests
-test: $(TARGET)
-	./$(TARGET)
+debug: $(RKO_SOURCE) $(RKO_HEADERS)
+	$(CXX) $(COMMON_FLAGS) $(DEBUG_FLAGS) $(RKO_SOURCE) -o $(RKO_TARGET)
 
-# Cleaning rule
+rebuild: debug
+
 clean:
-	$(RM) $(OBJS) $(TARGET)
-
-# Rule for compiling in debug mode
-debug: clean
-	$(MAKE) $(TARGET) CCC=$(CCC)
-
-# Rule to recompile
-rebuild: 
-	$(MAKE) debug
+	$(RM) $(RKO_TARGET) src/Main/main.o

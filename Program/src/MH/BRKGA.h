@@ -199,7 +199,7 @@ void BRKGA(const TRunData &runData, const TProblemData &data)
     bestInd = Pop[0];
     
     // run the evolutionary process until stop criterion
-    while (currentTime < runData.MAXTIME*runData.restart)
+    while (currentTime < runData.MAXTIME*runData.restart && (runData.maxGenerations == 0 || numGenerations < runData.maxGenerations))
     {
     	// number of generations
         numGenerations++;
