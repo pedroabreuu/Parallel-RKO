@@ -42,3 +42,5 @@ compile_commands.json
 *~
 .DS_Store
 Thumbs.db
+
+/.venv/

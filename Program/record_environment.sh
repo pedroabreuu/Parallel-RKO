@@ -8,14 +8,14 @@
 # not reproducible, only repeatable.
 #
 # Usage:  ./record_environment.sh [OUTPUT_FILE]
-#         CONFIG_NAME=parallel ./record_environment.sh   (same label as run_campaign.sh)
+#         CONFIG_NAME=decoder ./record_environment.sh   (same label as run_campaign.sh)
 set -euo pipefail
 export LC_ALL=C
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
-OUT=${1:-../Results/campanha_env_${CONFIG_NAME:-sequential}.txt}
+OUT=${1:-../Results/campanha_env_${CONFIG_NAME:-decoder}.txt}
 RAPL_PKG=/sys/class/powercap/intel-rapl:0
 mkdir -p "$(dirname "$OUT")"
 
@@ -54,6 +54,7 @@ mkdir -p "$(dirname "$OUT")"
     echo "governor: $(cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor 2>/dev/null || echo n/a)"
     echo "boost: $(cat /sys/devices/system/cpu/cpufreq/boost 2>/dev/null || echo n/a)"
     echo "smt: $(cat /sys/devices/system/cpu/smt/control 2>/dev/null || echo n/a)"
+    echo "perf_event_paranoid: $(cat /proc/sys/kernel/perf_event_paranoid) (campaign needs <= 2 to read the clock)"
     echo "current MHz:"
     grep -i 'cpu mhz' /proc/cpuinfo | head -4 || true
 

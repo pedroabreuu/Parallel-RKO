@@ -149,7 +149,7 @@ int main(int argc, char *argv[ ])
     runData.restart = 1.0f;
     runData.sizePool = 10;
     runData.maxGenerations = 0;
-    runData.threads = 1;
+    runData.threads = 0;
 
     while (fgets(line, sizeof(line), fileConf)) {
         // Remove newline character
@@ -220,8 +220,8 @@ int main(int argc, char *argv[ ])
     }
     fclose(fileConf);
 
-    if (runData.threads < 1) {
-        printf("\nERROR: threads must be >= 1 (got %d)\n", runData.threads);
+    if (runData.threads < 0) {
+        printf("\nERROR: threads must be >= 0 (got %d)\n", runData.threads);
         exit(1);
     }
 
