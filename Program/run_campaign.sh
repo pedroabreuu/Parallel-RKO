@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Usage:  ./run_campaign.sh [OUTPUT_CSV]
 #         CONFIG_NAME=decoder REPS=10 ./run_campaign.sh
-#         THREADS="0 1 4" WAIT_POLICIES=passive ./run_campaign.sh
+#         THREADS="2 4 12" WAIT_POLICIES="active passive" GENS=... ./run_campaign.sh   (wait-policy experiment)
 #         GENS=/tmp/two_instances.txt CONFIG_NAME=check REPS=1 ./run_campaign.sh   (quick check)
 set -euo pipefail
 export LC_ALL=C
@@ -9,8 +9,8 @@ export LC_ALL=C
 CONFIG_NAME=${CONFIG_NAME:-decoder}      # label of the campaign (file names, first CSV column)
 REPS=${REPS:-10}
 SEED=${SEED:-1234}
-THREADS=${THREADS:-0 1 2 4 8 12}         # values of the "threads" config key; 0 = sequential
-WAIT_POLICIES=${WAIT_POLICIES:-active passive}   # OMP_WAIT_POLICY values, for threads >= 2
+THREADS=${THREADS:-0 1 2 4 6 8 12}       # values of the "threads" config key; 0 = sequential
+WAIT_POLICIES=${WAIT_POLICIES:-active}   # OMP_WAIT_POLICY values, for threads >= 2
 WARMUP=${WARMUP:-1}                      # discarded runs at the start of every session
 COOLDOWN=${COOLDOWN:-5}                  # minimum seconds between runs
 COOLDOWN_MAX=${COOLDOWN_MAX:-120}        # never wait longer than this, seconds

@@ -40,7 +40,7 @@ Em `Program/`:
 ./run_campaign.sh           # todas as configurações, intercaladas, 10 repetições
 ```
 
-- `run_campaign.sh`: threads `0 1 2 4 8 12` × `OMP_WAIT_POLICY` `active`/`passive`, trabalho fixo (gerações por instância em `config/generations.txt`), seed fixa, aquecimento, espera por temperatura e medição de potência em repouso. Retoma de onde parou.
+- `run_campaign.sh`: threads `0 1 2 4 6 8 12` com `OMP_WAIT_POLICY=active` (experimento de política de espera: `THREADS`, `WAIT_POLICIES` e `GENS` por variável de ambiente), trabalho fixo (gerações por instância em `config/generations.txt`), seed fixa, aquecimento, espera por temperatura e medição de potência em repouso. Retoma de onde parou.
 - `calibrate_generations.sh`: gera `config/generations.txt` (~60 s por execução sequencial).
 
 Análise (tabelas e figuras em `Results/analysis/`):

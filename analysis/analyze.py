@@ -16,7 +16,7 @@ OPTIMA = os.path.join(ROOT, "ExactSolver", "optimal_results.csv")
 
 SLOTS = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300", "#4a3aa7", "#e34948"]
 MARKERS = ["o", "s", "^", "D", "v", "P", "X", "h"]
-KNOWN_THREADS = [1, 2, 4, 8, 12]
+KNOWN_THREADS = [1, 2, 4, 6, 8, 12]
 KNOWN_POLICIES = ["active", "passive"]
 INK, INK_2, MUTED, GRID, AXIS = "#0b0b0b", "#52514e", "#898781", "#e1e0d9", "#c3c2b7"
 KEYS = ["threads", "wait_policy"]
