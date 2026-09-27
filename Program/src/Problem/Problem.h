@@ -223,14 +223,14 @@ double Decoder(TSol &s, const TProblemData &data)
   }
 
   long long totalCost = 0;
-  std::vector<long long> facilityDistances(data.p);
-
+#pragma omp parallel for reduction(+:totalCost)
   for (int vertex = 0; vertex < data.nVertices; vertex++) {
+    long long facilityDistances[data.p];
     for (int i = 0; i < data.p; i++) {
       facilityDistances[i] = data.distances[vertex][facilities[i]];
     }
 
-    std::nth_element(facilityDistances.begin(), facilityDistances.begin() + data.alpha, facilityDistances.end());
+    std::nth_element(facilityDistances, facilityDistances + data.alpha, facilityDistances + data.p);
 
     for (int i = 0; i < data.alpha; i++) {
       totalCost += facilityDistances[i];
