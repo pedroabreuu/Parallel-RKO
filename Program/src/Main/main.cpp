@@ -228,6 +228,7 @@ int main(int argc, char *argv[ ])
     // input: read data of the instance problem
     TProblemData data;     
     ReadData(nameInstance, data);
+    data.threads = runData.threads;
 
     const long long energyRange = readEnergyUj(RAPL_PKG_RANGE);
       if (readEnergyUj(RAPL_PKG) < 0 || energyRange <= 0) {
@@ -297,6 +298,36 @@ int main(int argc, char *argv[ ])
             // best solution found in this run
             bestSolutionRun = pool[0];
 
+            // A single metaheuristic runs on the main thread, outside any OpenMP region: inside
+            // one, the decoder's parallel region would be nested, and libgomp pays hundreds of
+            // microseconds per nested region instead of about one.
+            if (NUM_MH == 1)
+            {
+                while (end_time - start_time < runData.MAXTIME)
+                {
+                    stop_execution.store(false);
+
+                    if (runData.debug && !runData.quiet) {
+                        printf("\nExecuting %s [%.2lf].", algorithms[0], end_time - start_time);
+                    }
+
+                    functions_MH[0](runData, data);
+
+                    end_time = get_time_in_seconds();
+
+                    if (pool[0].ofv < bestSolutionRun.ofv)
+                        bestSolutionRun = pool[0];
+
+                    // Fixed work runs the metaheuristic exactly once (see the parallel branch).
+                    if (runData.maxGenerations > 0)
+                        break;
+
+                    if (end_time - start_time < runData.MAXTIME)
+                        CreatePoolSolutions(data, runData.sizePool);
+                }
+            }
+            else
+            {
             omp_set_num_threads(NUM_MH);
             #pragma omp parallel firstprivate(rng) shared(pool, stop_execution)
             {
@@ -346,6 +377,7 @@ int main(int argc, char *argv[ ])
                     if (end_time - start_time < runData.MAXTIME)
                         CreatePoolSolutions(data, runData.sizePool);
                 }
+            }
             }
             // Reset the cancellation flag
             stop_execution.store(false);

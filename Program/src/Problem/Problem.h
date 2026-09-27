@@ -40,6 +40,7 @@ struct TProblemData
     double fileReadTime = 0.0;
     double adjacencyListTime = 0.0;
     double distanceMatrixTime = 0.0;
+    int threads = 0; // decoder threads (0 = sequential, no OpenMP; N >= 1 = OpenMP with N threads)
 };
 
 
@@ -190,6 +191,26 @@ void ReadData(char name[], TProblemData &data)
 inline std::atomic<unsigned long long> decoderCalls{0};
 
 /************************************************************************************
+ Method: VertexCost
+ Description: sum of the alpha smallest distances from a vertex to the open facilities
+*************************************************************************************/
+static long long VertexCost(int vertex, const std::vector<int> &facilities,
+                            std::vector<long long> &facilityDistances, const TProblemData &data)
+{
+  for (int i = 0; i < data.p; i++) {
+    facilityDistances[i] = data.distances[vertex][facilities[i]];
+  }
+
+  std::nth_element(facilityDistances.begin(), facilityDistances.begin() + data.alpha, facilityDistances.end());
+
+  long long cost = 0;
+  for (int i = 0; i < data.alpha; i++) {
+    cost += facilityDistances[i];
+  }
+  return cost;
+}
+
+/************************************************************************************
  Method: Decoder 
  Description: mapping the random-key solution into a problem solution
 *************************************************************************************/
@@ -223,17 +244,20 @@ double Decoder(TSol &s, const TProblemData &data)
   }
 
   long long totalCost = 0;
-#pragma omp parallel for reduction(+:totalCost)
-  for (int vertex = 0; vertex < data.nVertices; vertex++) {
-    long long facilityDistances[data.p];
-    for (int i = 0; i < data.p; i++) {
-      facilityDistances[i] = data.distances[vertex][facilities[i]];
+
+  if (data.threads == 0) {
+    std::vector<long long> facilityDistances(data.p);
+    for (int vertex = 0; vertex < data.nVertices; vertex++) {
+      totalCost += VertexCost(vertex, facilities, facilityDistances, data);
     }
-
-    std::nth_element(facilityDistances, facilityDistances + data.alpha, facilityDistances + data.p);
-
-    for (int i = 0; i < data.alpha; i++) {
-      totalCost += facilityDistances[i];
+  } else {
+    #pragma omp parallel num_threads(data.threads) reduction(+:totalCost)
+    {
+      std::vector<long long> facilityDistances(data.p);
+      #pragma omp for schedule(static)
+      for (int vertex = 0; vertex < data.nVertices; vertex++) {
+        totalCost += VertexCost(vertex, facilities, facilityDistances, data);
+      }
     }
   }
 
