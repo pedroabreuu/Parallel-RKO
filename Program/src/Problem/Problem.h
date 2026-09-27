@@ -4,6 +4,7 @@
 #include <queue>
 #include <functional>
 #include <limits>
+#include <map>
 #include <utility>
 #include <numeric>
 #include <algorithm>
@@ -161,9 +162,16 @@ void ReadData(char name[], TProblemData &data)
     data.aList.clear();
     data.aList.resize(data.nVertices);
 
+    // OR-Library pmed files repeat some edges with different costs; as in the literature,
+    // the last occurrence defines the cost.
+    std::map<std::pair<int, int>, int> edgeCost;
     for (const InputEdge& edge : inputEdges) {
-      data.aList[edge.origin].push_back({edge.destination, edge.cost});
-      data.aList[edge.destination].push_back({edge.origin, edge.cost});
+      edgeCost[std::minmax(edge.origin, edge.destination)] = edge.cost;
+    }
+
+    for (const auto& [ends, cost] : edgeCost) {
+      data.aList[ends.first].push_back({ends.second, cost});
+      data.aList[ends.second].push_back({ends.first, cost});
     }
 
     data.adjacencyListTime = omp_get_wtime() - startAdjacencyList;

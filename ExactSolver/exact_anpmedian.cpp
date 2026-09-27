@@ -5,6 +5,7 @@
 #include <iomanip>
 #include <iostream>
 #include <limits>
+#include <map>
 #include <queue>
 #include <stdexcept>
 #include <string>
@@ -40,6 +41,9 @@ Instance readInstance(const std::string& path) {
     instance.alpha = instance.p / 2;  // Decoder uses max(1, p / 2) identical for every pmed instance (p >= 5).
     instance.adjacency.resize(instance.vertices);
 
+    // OR-Library pmed files repeat some edges with different costs; as in the literature,
+    // the last occurrence defines the cost (same rule as ReadData in Problem.h).
+    std::map<std::pair<int, int>, int> edgeCost;
     for (int edge = 0; edge < instance.edges; ++edge) {
         int origin;
         int destination;
@@ -51,8 +55,12 @@ Instance readInstance(const std::string& path) {
 
         --origin;
         --destination;
-        instance.adjacency[origin].push_back({destination, cost});
-        instance.adjacency[destination].push_back({origin, cost});
+        edgeCost[std::minmax(origin, destination)] = cost;
+    }
+
+    for (const auto& [ends, cost] : edgeCost) {
+        instance.adjacency[ends.first].push_back({ends.second, cost});
+        instance.adjacency[ends.second].push_back({ends.first, cost});
     }
 
     return instance;
