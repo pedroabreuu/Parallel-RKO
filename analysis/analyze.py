@@ -171,6 +171,16 @@ def save(fig, out, name):
     fig.savefig(os.path.join(out, name + ".pdf"))
     fig.savefig(os.path.join(out, name + ".png"), dpi=200)
 
+POLICY_NAMES = {"active": "espera ativa", "passive": "espera bloqueante", "default": "padrão"}
+X_LABEL = "trabalho por decodificação (n·p)"
+SPEEDUP_LABEL = r"speedup ($T_{seq}/T_k$)"
+ENERGY_LABEL = r"energia relativa ($E_k/E_{seq}$)"
+
+def decimal_comma(ax, axis="y"):
+    from matplotlib.ticker import FuncFormatter
+    fmt = FuncFormatter(lambda v, _: f"{v:g}".replace(".", ","))
+    (ax.yaxis if axis == "y" else ax.xaxis).set_major_formatter(fmt)
+
 def policies_of(frame):
     found = sorted(set(frame["wait_policy"]) - {"default"})
     return found or ["default"]
@@ -179,43 +189,67 @@ def with_policy(frame, policy):
     """Runs of one wait policy plus the ones where the policy does not apply (0 and 1 thread)."""
     return frame[(frame["wait_policy"] == policy) | (frame["wait_policy"] == "default")]
 
-def plot_ratio(plt, by_instance, column, ylabel, title, out, name):
+def scatter_by_threads(ax, frame, column):
+    """One series per thread count against n·p, with the no-change line at 1."""
+    ax.axhline(1, color=MUTED, linewidth=1, linestyle="--", zorder=1)
+    for order, (threads, group) in enumerate(frame.groupby("threads")):
+        color, marker = style(threads, KNOWN_THREADS, order)
+        ax.scatter(group["vertices"] * group["p"], group[column], s=22, color=color, marker=marker,
+                   edgecolor="white", linewidth=0.6, zorder=3, label=f"{threads} thread{'s' * (threads > 1)}")
+    ax.set_xscale("log")
+    ax.set_xlabel(X_LABEL)
+    decimal_comma(ax)
+
+def plot_main(plt, by_instance, out):
+    """Speedup and relative energy side by side, one policy: the main figure of the paper."""
+    fig, (left, right) = plt.subplots(1, 2, figsize=(6.3, 2.9))
+    scatter_by_threads(left, by_instance, "speedup")
+    scatter_by_threads(right, by_instance, "energy_ratio")
+    left.set_ylabel(SPEEDUP_LABEL)
+    right.set_ylabel(ENERGY_LABEL)
+    left.set_title("(a) speedup", loc="left", fontsize=9, color=INK_2)
+    right.set_title("(b) energia", loc="left", fontsize=9, color=INK_2)
+    handles, labels = left.get_legend_handles_labels()
+    fig.legend(handles, labels, loc="lower center", ncol=len(labels), fontsize=8, handletextpad=0.2,
+               columnspacing=1.0, bbox_to_anchor=(0.5, 0))
+    fig.tight_layout(rect=(0, 0.08, 1, 1))
+    fig.savefig(os.path.join(out, "fig_speedup_energia.pdf"))
+    fig.savefig(os.path.join(out, "fig_speedup_energia.png"), dpi=200)
+    plt.close(fig)
+
+def plot_ratio(plt, by_instance, column, ylabel, out, name):
+    """One panel per wait policy, for the wait-policy experiment."""
     policies = policies_of(by_instance)
-    fig, axes = plt.subplots(1, len(policies), figsize=(4.2 * len(policies) + 1, 3.6), sharey=True, squeeze=False)
+    fig, axes = plt.subplots(1, len(policies), figsize=(3.2 * len(policies), 2.9), sharey=True, squeeze=False)
     for ax, policy in zip(axes[0], policies):
-        ax.axhline(1, color=MUTED, linewidth=1, linestyle="--", zorder=1)
-        for order, (threads, group) in enumerate(with_policy(by_instance, policy).groupby("threads")):
-            color, marker = style(threads, KNOWN_THREADS, order)
-            ax.scatter(group["vertices"] * group["p"], group[column], s=28, color=color, marker=marker,
-                       edgecolor="white", linewidth=0.8, zorder=3, label=f"{threads} thread{'s' * (threads > 1)}")
-        ax.set_xscale("log")
-        ax.set_xlabel("decoder work per call, n x p (log scale)")
-        ax.set_title(f"wait policy: {policy}", loc="left", fontsize=9, color=INK_2)
+        scatter_by_threads(ax, with_policy(by_instance, policy), column)
+        ax.set_title(POLICY_NAMES.get(policy, policy), loc="left", fontsize=9, color=INK_2)
     axes[0][0].set_ylabel(ylabel)
     axes[0][-1].legend(loc="best", fontsize=8)
-    fig.suptitle(title, x=0.01, ha="left", fontsize=10)
     save(fig, out, name)
     plt.close(fig)
 
-def plot_by_threads(plt, summary, column, fmt, ylabel, title, out, name):
+def plot_by_threads(plt, summary, column, fmt, ylabel, out, name):
     """One value per thread count averaged over instances, one line per wait policy."""
     if summary[column].isna().all():
         return
-    fig, ax = plt.subplots(figsize=(4.8, 3.2))
-    for order, policy in enumerate(policies_of(summary)):
+    policies = policies_of(summary)
+    fig, ax = plt.subplots(figsize=(3.6, 2.6))
+    for order, policy in enumerate(policies):
         values = with_policy(summary, policy).groupby("threads")[column].mean().dropna()
         color, marker = style(policy, KNOWN_POLICIES, order)
-        ax.plot(values.index, values.values, color=color, linewidth=1.5, marker=marker, markersize=6,
-                markeredgecolor="white", label=policy)
+        ax.plot(values.index, values.values, color=color, linewidth=1.5, marker=marker, markersize=5,
+                markeredgecolor="white", label=POLICY_NAMES.get(policy, policy))
         last = values.index[-1]
-        ax.annotate(fmt.format(values[last]), (last, values[last]), textcoords="offset points",
-                    xytext=(6, 0), va="center", fontsize=8, color=INK_2)
+        ax.annotate(fmt.format(values[last]).replace(".", ","), (last, values[last]),
+                    textcoords="offset points", xytext=(6, 0), va="center", fontsize=8, color=INK_2)
     ticks = sorted(summary["threads"].unique())
     ax.set_xticks(ticks, ["seq" if t == 0 else str(t) for t in ticks])
     ax.set_xlabel("threads")
     ax.set_ylabel(ylabel)
-    ax.set_title(title, loc="left")
-    ax.legend(title="wait policy", fontsize=8, title_fontsize=8)
+    decimal_comma(ax)
+    if len(policies) > 1:
+        ax.legend(fontsize=8)
     save(fig, out, name)
     plt.close(fig)
 
@@ -246,16 +280,16 @@ def analyse(paths, out, baseline_name=None, plots=True):
 
     if plots:
         plt = setup_matplotlib()
-        plot_ratio(plt, by_instance, "speedup", "speedup (T_seq / T_n)",
-                   "Speedup against the sequential decoder", out, "fig_speedup")
-        plot_ratio(plt, by_instance, "energy_ratio", "energy ratio (E_n / E_seq, below 1 saves energy)",
-                   "Package energy against the sequential decoder", out, "fig_energy_ratio")
-        plot_by_threads(plt, summary, "watts_mean", "{:.1f} W", "mean package power (W)",
-                        "Package power by thread count", out, "fig_power")
-        plot_by_threads(plt, summary, "ghz_mean", "{:.2f} GHz", "mean effective clock (GHz)",
-                        "Effective clock by thread count", out, "fig_clock")
-        plot_by_threads(plt, summary, "cpu_util_mean", "{:.1f}", "busy cores (CPU time / wall time)",
-                        "CPU utilisation by thread count", out, "fig_cpu_util")
+        if len(policies_of(by_instance)) == 1:
+            plot_main(plt, by_instance, out)
+        else:
+            plot_ratio(plt, by_instance, "speedup", SPEEDUP_LABEL, out, "fig_speedup")
+            plot_ratio(plt, by_instance, "energy_ratio", ENERGY_LABEL, out, "fig_energia")
+            # Only informative when policies differ: active keeps every thread busy.
+            plot_by_threads(plt, summary, "cpu_util_mean", "{:.1f}", "núcleos ocupados (CPU / tempo real)",
+                            out, "fig_utilizacao")
+        plot_by_threads(plt, summary, "watts_mean", "{:.1f} W", "potência média do pacote (W)",
+                        out, "fig_potencia")
 
     result.update(by_instance=by_instance, overall=overall)
     return result
