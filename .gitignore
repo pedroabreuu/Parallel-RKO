@@ -10,7 +10,10 @@
 /Program/runRKO
 /ExactSolver/exact_anpmedian
 
-/Results/
+/Results/*
+!/Results/campaign_*.csv
+!/Results/analysis/
+/Results/analysis/runs.csv
 
 *.lp
 *.mps

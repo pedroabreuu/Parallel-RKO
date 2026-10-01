@@ -1,0 +1,8 @@
+fixed work: OK (40 instances, same ofv and decodes in every run)
+decoder 1t: 40 instances, 10-10 reps each, idle 14.41 W, temperature recorded in 100% of runs
+decoder 2t-active: 40 instances, 10-10 reps each, idle 14.41 W, temperature recorded in 100% of runs
+decoder seq: 40 instances, 10-10 reps each, idle 14.41 W, temperature recorded in 100% of runs
+decoder 6t-active: 40 instances, 10-10 reps each, idle 14.41 W, temperature recorded in 100% of runs
+decoder 8t-active: 40 instances, 10-10 reps each, idle 14.41 W, temperature recorded in 100% of runs
+decoder 12t-active: 40 instances, 10-10 reps each, idle 14.41 W, temperature recorded in 100% of runs
+decoder 4t-active: 40 instances, 10-10 reps each, idle 14.41 W, temperature recorded in 100% of runs
