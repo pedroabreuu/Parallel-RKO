@@ -13,7 +13,7 @@
 /Results/*
 !/Results/campaign_*.csv
 !/Results/analysis/
-/Results/analysis/runs.csv
+/Results/analysis/**/runs.csv
 
 *.lp
 *.mps

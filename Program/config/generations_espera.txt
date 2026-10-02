@@ -1,0 +1,6 @@
+pmed1.txt 18964
+pmed9.txt 791
+pmed11.txt 6020
+pmed15.txt 200
+pmed21.txt 3280
+pmed40.txt 76

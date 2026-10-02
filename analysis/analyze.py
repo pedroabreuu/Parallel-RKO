@@ -217,6 +217,48 @@ def plot_main(plt, by_instance, out):
     fig.savefig(os.path.join(out, "fig_speedup_energia.png"), dpi=200)
     plt.close(fig)
 
+def wait_ratios(summary):
+    """Passive over active, per instance and thread count: same work, same session."""
+    pair = summary[summary["wait_policy"].isin(["active", "passive"])]
+    wide = pair.pivot_table(index=["instance", "threads", "vertices", "p"], columns="wait_policy",
+                            values=["time_mean", "joules_mean", "cpu_util_mean"]).dropna()
+    return pd.DataFrame({
+        "time_ratio": wide["time_mean"]["passive"] / wide["time_mean"]["active"],
+        "energy_ratio": wide["joules_mean"]["passive"] / wide["joules_mean"]["active"],
+        "cpu_util_active": wide["cpu_util_mean"]["active"],
+        "cpu_util_passive": wide["cpu_util_mean"]["passive"],
+    }).reset_index()
+
+def plot_wait(plt, ratios, out):
+    """Passive/active time and energy against n·p, one line per thread count; above 1 = passive worse."""
+    fig, axes = plt.subplots(1, 2, figsize=(6.3, 2.9))
+    log = ratios[["time_ratio", "energy_ratio"]].max().max() > 4
+    panels = [(axes[0], "time_ratio", "tempo bloqueante / ativa", "(a) tempo"),
+              (axes[1], "energy_ratio", "energia bloqueante / ativa", "(b) energia")]
+    for ax, column, ylabel, title in panels:
+        ax.axhline(1, color=MUTED, linewidth=1, linestyle="--", zorder=1)
+        for order, (threads, group) in enumerate(ratios.groupby("threads")):
+            group = group.assign(np=group["vertices"] * group["p"]).sort_values("np")
+            color, marker = style(threads, KNOWN_THREADS, order)
+            ax.plot(group["np"], group[column], color=color, marker=marker, markersize=5, linewidth=1.3,
+                    markeredgecolor="white", label=f"{threads} threads")
+        ax.set_xscale("log")
+        if log:
+            ax.set_yscale("log")
+            top = ratios[column].max()
+            ax.set_yticks([t for t in (0.5, 1, 2, 4, 8, 16, 32) if t <= top * 1.5])
+            ax.minorticks_off()
+        ax.set_xlabel(X_LABEL)
+        ax.set_ylabel(ylabel)
+        ax.set_title(title, loc="left", fontsize=9, color=INK_2)
+        decimal_comma(ax)
+    handles, labels = axes[0].get_legend_handles_labels()
+    fig.legend(handles, labels, loc="lower center", ncol=len(labels), fontsize=8, bbox_to_anchor=(0.5, 0))
+    fig.tight_layout(rect=(0, 0.08, 1, 1))
+    fig.savefig(os.path.join(out, "fig_espera.pdf"))
+    fig.savefig(os.path.join(out, "fig_espera.png"), dpi=200)
+    plt.close(fig)
+
 def plot_ratio(plt, by_instance, column, ylabel, out, name):
     """One panel per wait policy, for the wait-policy experiment."""
     policies = policies_of(by_instance)
@@ -257,7 +299,19 @@ def analyse(paths, out, baseline_name=None, plots=True):
     os.makedirs(out, exist_ok=True)
     runs = derive(load(paths))
 
+    # A run well short of its instance's full work (here, under 99%) was cut short, typically by
+    # the MAXTIME ceiling: it did not do the fixed work, so it is listed and left out. Small
+    # mismatches are not excused: they stay in and fail the fixed-work check.
+    incomplete = runs["decodes"] < 0.99 * runs.groupby("instance")["decodes"].transform("max")
+    cut = runs[incomplete]
+    runs = runs[~incomplete]
+
     report, problems = validate(runs)
+    for (setup, instance), group in cut.groupby(["setup", "instance"]):
+        full = runs.loc[runs["instance"] == instance, "decodes"].max()
+        report.append(f"excluded {setup} {instance}: {len(group)} incomplete runs "
+                      f"(stopped at {group['time_total'].max():.0f} s with "
+                      f"{group['decodes'].mean() / full * 100:.0f}% of the work)")
     with open(os.path.join(out, "validation.txt"), "w") as f:
         f.write("\n".join(report) + "\n")
     print("\n".join(report))
@@ -288,6 +342,10 @@ def analyse(paths, out, baseline_name=None, plots=True):
             # Only informative when policies differ: active keeps every thread busy.
             plot_by_threads(plt, summary, "cpu_util_mean", "{:.1f}", "núcleos ocupados (CPU / tempo real)",
                             out, "fig_utilizacao")
+            if {"active", "passive"} <= set(summary["wait_policy"]):
+                ratios = wait_ratios(summary)
+                ratios.to_csv(os.path.join(out, "wait_ratios.csv"), index=False, float_format="%.6g")
+                plot_wait(plt, ratios, out)
         plot_by_threads(plt, summary, "watts_mean", "{:.1f} W", "potência média do pacote (W)",
                         out, "fig_potencia")
 

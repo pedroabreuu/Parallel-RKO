@@ -1,0 +1,9 @@
+fixed work: OK (6 instances, same ofv and decodes in every run)
+espera 4t-active: 6 instances, 4-4 reps each, idle 15.67 W, temperature recorded in 100% of runs
+espera 4t-passive: 6 instances, 4-4 reps each, idle 15.67 W, temperature recorded in 100% of runs
+espera seq: 6 instances, 4-4 reps each, idle 15.67 W, temperature recorded in 100% of runs
+espera 2t-active: 6 instances, 4-4 reps each, idle 15.67 W, temperature recorded in 100% of runs
+espera 2t-passive: 6 instances, 4-4 reps each, idle 15.67 W, temperature recorded in 100% of runs
+espera 12t-passive: 5 instances, 4-4 reps each, idle 15.67 W, temperature recorded in 100% of runs
+espera 12t-active: 6 instances, 4-4 reps each, idle 15.67 W, temperature recorded in 100% of runs
+excluded 12t-passive pmed1.txt: 4 incomplete runs (stopped at 1800 s with 38% of the work)
