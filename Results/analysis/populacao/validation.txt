@@ -1,0 +1,15 @@
+|P| = 100: OK
+  fixed work: OK (3 instances, same ofv and decodes in every run)
+  populacao_p100 6t-active: 3 instances, 5-5 reps each, idle 15.13 W, temperature recorded in 100% of runs
+  populacao_p100 12t-active: 3 instances, 5-5 reps each, idle 15.13 W, temperature recorded in 100% of runs
+  populacao_p100 seq: 3 instances, 5-5 reps each, idle 15.13 W, temperature recorded in 100% of runs
+|P| = 987: OK
+  fixed work: OK (3 instances, same ofv and decodes in every run)
+  populacao_p987 seq: 3 instances, 5-5 reps each, idle 15.13 W, temperature recorded in 100% of runs
+  populacao_p987 12t-active: 3 instances, 5-5 reps each, idle 15.13 W, temperature recorded in 100% of runs
+  populacao_p987 6t-active: 3 instances, 5-5 reps each, idle 15.13 W, temperature recorded in 100% of runs
+|P| = 2000: OK
+  fixed work: OK (3 instances, same ofv and decodes in every run)
+  populacao_p2000 seq: 3 instances, 5-5 reps each, idle 15.13 W, temperature recorded in 100% of runs
+  populacao_p2000 6t-active: 3 instances, 5-5 reps each, idle 15.13 W, temperature recorded in 100% of runs
+  populacao_p2000 12t-active: 3 instances, 5-5 reps each, idle 15.13 W, temperature recorded in 100% of runs
