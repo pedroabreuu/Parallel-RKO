@@ -3,6 +3,8 @@
 #         CONFIG_NAME=decoder REPS=10 ./run_campaign.sh
 #         THREADS="2 4 12" WAIT_POLICIES="active passive" GENS=... ./run_campaign.sh   (wait-policy experiment)
 #         GENS=/tmp/two_instances.txt CONFIG_NAME=check REPS=1 ./run_campaign.sh   (quick check)
+#         GENS=config/generations_populacao.txt CONFIG_NAME=populacao THREADS="0 6 12" REPS=5 ./run_campaign.sh
+#             (population experiment: a GENS line "instance population generations" sets |P|)
 set -euo pipefail
 export LC_ALL=C
 
@@ -27,6 +29,7 @@ RESULTS=../Results/Results_RKO.csv
 OUT=${1:-../Results/campaign_${CONFIG_NAME}.csv}
 IDLE_OUT=${OUT%.csv}_idle.csv
 RAPL=/sys/class/powercap/intel-rapl:0
+PARAMS=config/ParametersOffline.txt     # RKO reads |P| from this fixed path (Method.h)
 
 [[ -x ./runRKO ]] || { echo "runRKO not built. Run: make release" >&2; exit 1; }
 [[ -f $GENS   ]] || { echo "missing $GENS. Run: ./calibrate_generations.sh" >&2; exit 1; }
@@ -37,7 +40,10 @@ command -v perf >/dev/null || { echo "perf not installed" >&2; exit 1; }
 
 CONF=$(mktemp)
 PERF_OUT=$(mktemp)
-trap 'rm -f "$CONF" "$PERF_OUT"' EXIT
+PARAMS_BAK=$(mktemp)
+cp "$PARAMS" "$PARAMS_BAK"
+trap 'cp "$PARAMS_BAK" "$PARAMS"; rm -f "$CONF" "$PERF_OUT" "$PARAMS_BAK"' EXIT
+trap 'exit 130' INT TERM
 
 # Temperature is context, not data: never let a missing sensor abort a campaign
 # that is already hours in.
@@ -72,18 +78,21 @@ cool_down() {
     done
 }
 
-# Every (instance, budget, threads, wait policy) pair of one repetition.
+# Every (instance, budget, threads, wait policy, population) of one repetition. A GENS
+# line is "instance generations", or "instance population generations" to set |P|
+# ("-" keeps the parameter file as is).
 list_jobs() {
-    local name gens t w
-    while read -r name gens; do
-        if [[ $name == \#* || -z ${gens:-} ]]; then
+    local name gens t w pop extra
+    while read -r name pop extra; do
+        if [[ $name == \#* || -z ${pop:-} ]]; then
             continue
         fi
+        if [[ -n ${extra:-} ]]; then gens=$extra; else gens=$pop; pop=-; fi
         for t in $THREADS; do
             if (( t < 2 )); then
-                echo "$name $gens $t default"
+                echo "$name $gens $t default $pop"
             else
-                for w in $WAIT_POLICIES; do echo "$name $gens $t $w"; done
+                for w in $WAIT_POLICIES; do echo "$name $gens $t $w $pop"; done
             fi
         done
     done < "$GENS"
@@ -91,7 +100,10 @@ list_jobs() {
 
 # Runs one job. Sets t_start, t_end, ghz, cpu_s and row (the solver's last result).
 run_job() {
-    local name=$1 gens=$2 threads=$3 policy=$4 wait_env
+    local name=$1 gens=$2 threads=$3 policy=$4 pop=$5 wait_env
+    if [[ $pop != - ]]; then
+        sed -i "/^BRKGA$/,/^$/ s/^p *= {[0-9]*}/p    = {$pop}/" "$PARAMS"
+    fi
     cat > "$CONF" <<EOF
 BRKGA
 MAXRUNS 1
@@ -143,29 +155,30 @@ measure_idle start
 
 # Warm-up, discarded: the first instance with the most threads, so the whole CPU,
 # page cache and clock governor reach a steady state before anything is measured.
-read -r warm_name warm_gens _ < <(list_jobs)
+read -r warm_name warm_gens _ _ warm_pop < <(list_jobs)
 warm_threads=$(printf '%s\n' $THREADS | sort -n | tail -1)
 warm_policy=default
 if (( warm_threads >= 2 )); then read -r warm_policy _ <<< "$WAIT_POLICIES"; fi
 for i in $(seq 1 "$WARMUP"); do
-    run_job "$warm_name" "$warm_gens" "$warm_threads" "$warm_policy"
+    run_job "$warm_name" "$warm_gens" "$warm_threads" "$warm_policy" "$warm_pop"
     printf '[warm-up %s/%s] %-12s threads=%s %s  (discarded)\n' "$i" "$WARMUP" "$warm_name" "$warm_threads" "$warm_policy"
     cool_down
 done
 
 for rep in $(seq 1 "$REPS"); do
-    while read -r name gens threads policy; do
+    while read -r name gens threads policy pop; do
         instance="$INSTANCE_DIR/$name"
-        if grep -q "^${CONFIG_NAME},${threads},${policy},${instance},.*,${SEED},${gens},${rep}," "$OUT" 2>/dev/null; then
+        label=$CONFIG_NAME; [[ $pop == - ]] || label=${CONFIG_NAME}_p${pop}
+        if grep -q "^${label},${threads},${policy},${instance},.*,${SEED},${gens},${rep}," "$OUT" 2>/dev/null; then
             continue   # already measured, resume without redoing it
         fi
 
-        run_job "$name" "$gens" "$threads" "$policy"
+        run_job "$name" "$gens" "$threads" "$policy" "$pop"
         read -r vertices _edges p _rest < "$instance"
-        echo "$CONFIG_NAME,$threads,$policy,$instance,$vertices,$p,$SEED,$gens,$rep,$row,$ghz,$cpu_s,${t_start:-},${t_end:-}" >> "$OUT"
+        echo "$label,$threads,$policy,$instance,$vertices,$p,$SEED,$gens,$rep,$row,$ghz,$cpu_s,${t_start:-},${t_end:-}" >> "$OUT"
 
         done_count=$((done_count + 1))
-        printf '[rep %s/%s] %-12s threads=%-2s %-8s %s  %s GHz\n' "$rep" "$REPS" "$name" "$threads" "$policy" "$row" "$ghz"
+        printf '[rep %s/%s] %-12s pop=%-5s threads=%-2s %-8s %s  %s GHz\n' "$rep" "$REPS" "$name" "$pop" "$threads" "$policy" "$row" "$ghz"
 
         cool_down
     done < <(list_jobs | shuf)

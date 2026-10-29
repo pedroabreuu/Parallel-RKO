@@ -1,0 +1,10 @@
+# instance population maxGenerations   (target 60s per sequential run)
+pmed1.txt 100 197161
+pmed11.txt 100 61902
+pmed30.txt 100 211
+pmed1.txt 987 19990
+pmed11.txt 987 6072
+pmed30.txt 987 48
+pmed1.txt 2000 9747
+pmed11.txt 2000 3059
+pmed30.txt 2000 27
